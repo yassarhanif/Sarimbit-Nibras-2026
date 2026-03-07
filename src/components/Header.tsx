@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { testConnection } from "@/lib/api";
+import JumpMenu from "./JumpMenu";
 import styles from "./Header.module.css";
 
 export default function Header() {
@@ -20,24 +21,27 @@ export default function Header() {
     return (
         <header className={styles.header}>
             <div className={styles.headerContent}>
-                <h1 className={styles.title}>Sisa Stok Sarimbit</h1>
-                <div className={styles.status}>
-                    <div
-                        className={`${styles.dot} ${connected === null
+                <div className={styles.headerLeft}>
+                    <h1 className={styles.title}>Sarimbit 2025</h1>
+                    <div className={styles.status}>
+                        <div
+                            className={`${styles.dot} ${connected === null
                                 ? styles.checking
                                 : connected
                                     ? styles.online
                                     : styles.offline
-                            }`}
-                    />
-                    <span className={styles.statusText}>
-                        {connected === null
-                            ? "Memeriksa..."
-                            : connected
-                                ? "Terhubung"
-                                : "Tidak Terhubung"}
-                    </span>
+                                }`}
+                        />
+                        <span className={styles.statusText}>
+                            {connected === null
+                                ? "Memeriksa..."
+                                : connected
+                                    ? "Terhubung"
+                                    : "Tidak Terhubung"}
+                        </span>
+                    </div>
                 </div>
+                <JumpMenu />
             </div>
         </header>
     );

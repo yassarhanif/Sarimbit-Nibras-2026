@@ -66,7 +66,7 @@ export default function SeriesCard({ series }: SeriesCardProps) {
     return (
         <>
             {colorStocks.map((cs) => (
-                <div key={cs.color.name} className={styles.card}>
+                <div key={cs.color.name} className={styles.card} id={`series-${series.name}`}>
                     {/* Header: Image + Title */}
                     <div className={styles.cardHeader}>
                         <div className={styles.imageBox}>

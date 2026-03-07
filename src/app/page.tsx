@@ -3,6 +3,7 @@
 import { SARIMBIT_SERIES } from "@/config/products";
 import Header from "@/components/Header";
 import SeriesCard from "@/components/SeriesCard";
+import BackToTop from "@/components/BackToTop";
 
 export default function Home() {
   return (
@@ -19,6 +20,7 @@ export default function Home() {
           memperbarui
         </p>
       </main>
+      <BackToTop />
     </>
   );
 }

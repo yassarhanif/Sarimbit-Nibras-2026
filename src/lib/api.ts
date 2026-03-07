@@ -62,42 +62,60 @@ function extractSize(name: string): string {
 }
 
 /**
- * Fetch stock for one group in one color
+ * Process stock for one group in one color synchronously from fetched products
  */
-async function getGroupStock(
+function processGroupStock(
+    products: ProductResult[],
     seriesName: string,
     color: string,
     group: ModelGroup
-): Promise<GroupStock> {
+): GroupStock {
     const modelData: Map<string, Map<string, number>> = new Map();
+    const seriesUpper = seriesName.toUpperCase();
+    const colorUpper = color.toUpperCase();
 
     for (const model of group.models) {
-        const query = `${seriesName} ${model} ${color}`;
         const sizeStockMap = new Map<string, number>();
+        const modelWords = model.toUpperCase().split(/\s+/);
+        const isModelAnak = model.toUpperCase().includes("ANAK");
 
-        try {
-            const products = await searchProducts(query);
-            const seriesUpper = seriesName.toUpperCase();
-            const modelUpper = model.toUpperCase();
-            const colorUpper = color.toUpperCase();
+        for (const p of products) {
+            const nameUpper = p.name.toUpperCase();
 
-            for (const p of products) {
-                const nameUpper = p.name.toUpperCase();
-                if (
-                    nameUpper.includes(seriesUpper) &&
-                    nameUpper.includes(modelUpper) &&
-                    nameUpper.includes(colorUpper)
-                ) {
-                    const size = extractSize(p.name);
-                    // Only include sizes that belong to this group
-                    if (group.sizes.includes(size)) {
-                        const stock = p.stock ?? p.stok ?? 0;
-                        sizeStockMap.set(size, (sizeStockMap.get(size) || 0) + stock);
-                    }
-                }
+            if (!nameUpper.includes(seriesUpper)) {
+                continue;
             }
-        } catch (err) {
-            console.error(`Failed to fetch ${query}:`, err);
+
+            // Exact color match
+            const colorWords = colorUpper.split(/\s+/);
+            const matchesColor = colorWords.every(word => nameUpper.includes(word));
+            if (!matchesColor) {
+                continue;
+            }
+
+            // Check if product is "Anak" based on product name - use word boundary to avoid "FANAKU" matching "ANAK"
+            const isProductAnak = /\bANAK\b/.test(nameUpper);
+            
+            // Filter: if model has "Anak", product must have "Anak"
+            // if model doesn't have "Anak", product must NOT have "Anak"
+            if (isModelAnak !== isProductAnak) {
+                continue;
+            }
+
+            // Model match
+            const matchesModel = modelWords.every(word => nameUpper.includes(word));
+            if (!matchesModel) {
+                continue;
+            }
+
+            // Size match
+            const size = extractSize(p.name);
+            if (!group.sizes.includes(size)) {
+                continue;
+            }
+
+            const stock = p.stock ?? p.stok ?? 0;
+            sizeStockMap.set(size, (sizeStockMap.get(size) || 0) + stock);
         }
 
         modelData.set(model, sizeStockMap);
@@ -135,10 +153,19 @@ export async function getSeriesStock(
 ): Promise<ColorStock[]> {
     const results: ColorStock[] = [];
 
+    // Fetch ALL products for the series at once
+    let allProducts: ProductResult[] = [];
+    try {
+        allProducts = await searchProducts(series.name);
+    } catch (err) {
+        console.error(`Failed to fetch series ${series.name}:`, err);
+        throw err;
+    }
+
     for (const color of series.colors) {
         const groups: GroupStock[] = [];
         for (const group of series.groups) {
-            const gs = await getGroupStock(series.name, color.name, group);
+            const gs = processGroupStock(allProducts, series.name, color.name, group);
             groups.push(gs);
         }
         results.push({ color, groups });
