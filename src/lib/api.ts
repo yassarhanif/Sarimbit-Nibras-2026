@@ -1,14 +1,5 @@
-import { PROXY_URL } from "@/config/proxy";
+import { ProductResult, QueryResponse } from "@/config/proxy";
 import { SarimbitSeries, ModelGroup, ColorConfig } from "@/config/products";
-
-export interface ProductResult {
-    id: string;
-    barcode: string;
-    name: string;
-    stock: number;
-    stok: number;
-    price: number;
-}
 
 // Stock data for one group (e.g. "Dewasa") in one color
 export interface GroupStock {
@@ -26,16 +17,33 @@ export interface ColorStock {
     groups: GroupStock[];
 }
 
+async function executeQuery(sql: string, params: unknown[] = []): Promise<QueryResponse> {
+    const res = await fetch("/api/proxy/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sql, params }),
+        signal: AbortSignal.timeout(15000),
+    });
+
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || `Error: ${res.status}`);
+    }
+
+    return res.json();
+}
+
 /**
  * Test if the proxy API is reachable
  */
 export async function testConnection(): Promise<boolean> {
     try {
-        const res = await fetch(`${PROXY_URL}/api/database/test-connection`, {
+        const res = await fetch("/api/proxy/health", {
             signal: AbortSignal.timeout(5000),
         });
+        if (!res.ok) return false;
         const data = await res.json();
-        return data.success === true;
+        return data.status === "ok";
     } catch {
         return false;
     }
@@ -45,12 +53,23 @@ export async function testConnection(): Promise<boolean> {
  * Search products by name via the proxy
  */
 async function searchProducts(query: string): Promise<ProductResult[]> {
-    const res = await fetch(
-        `${PROXY_URL}/api/products/search?name=${encodeURIComponent(query)}`,
-        { signal: AbortSignal.timeout(15000) }
+    const res = await executeQuery(
+        `SELECT ti.kodeitem AS id, ti.kodeitem AS barcode, ti.namaitem AS name, ts.stok, ti.hargajual1 AS price
+         FROM tbl_item ti
+         JOIN tbl_itemstok ts ON ti.kodeitem = ts.kodeitem
+         WHERE LOWER(ti.namaitem) LIKE LOWER($1)
+         ORDER BY ti.namaitem`,
+        [`%${query}%`]
     );
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
-    return res.json();
+
+    return (res.rows as unknown as Record<string, unknown>[]).map((row) => ({
+        id: String(row.id ?? ""),
+        barcode: String(row.barcode ?? ""),
+        name: String(row.name ?? ""),
+        stok: Number(row.stok) || 0,
+        stock: Number(row.stok) || 0,
+        price: Number(row.price) || 0,
+    }));
 }
 
 /**
